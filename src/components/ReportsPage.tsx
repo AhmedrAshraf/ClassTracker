@@ -315,16 +315,18 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
        pdfContent.style.maxWidth = '900px';
        pdfContent.style.margin = '0 auto';
       
-      // Header
-      const header = document.createElement('div');
-      header.innerHTML = `
-        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 20px;">
-          <h1 style="font-size: 28px; font-weight: bold; color: #111827; margin: 0 0 10px 0;">Reports & Analytics</h1>
-          <h2 style="font-size: 20px; color: #374151; margin: 0 0 5px 0;">${className}</h2>
-          <p style="font-size: 14px; color: #6b7280; margin: 0;">Period: ${dateRangeString}</p>
-          <p style="font-size: 14px; color: #6b7280; margin: 0;">Generated: ${new Date().toLocaleDateString()}</p>
-        </div>
-      `;
+             // Header
+       const header = document.createElement('div');
+       const studentName = selectedStudentId ? students.find(s => s.id === selectedStudentId)?.name : null;
+       header.innerHTML = `
+         <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 20px;">
+           <h1 style="font-size: 28px; font-weight: bold; color: #111827; margin: 0 0 10px 0;">Reports & Analytics</h1>
+           <h2 style="font-size: 20px; color: #374151; margin: 0 0 5px 0;">${className}</h2>
+           ${studentName ? `<h3 style="font-size: 16px; color: #6b7280; margin: 0 0 5px 0;">${studentName}</h3>` : ''}
+           <p style="font-size: 14px; color: #6b7280; margin: 0;">Period: ${dateRangeString}</p>
+           <p style="font-size: 14px; color: #6b7280; margin: 0;">Generated: ${new Date().toLocaleDateString()}</p>
+         </div>
+       `;
       pdfContent.appendChild(header);
       
       // Summary Cards
@@ -397,43 +399,43 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
         `;
         pdfContent.appendChild(dailyTrendSection);
         
-        // Distribution Chart
-        const distributionSection = document.createElement('div');
-        const totalPoints = reportData.totalPositivePoints + reportData.totalNegativePoints;
-        const positivePercentage = totalPoints > 0 ? Math.round((reportData.totalPositivePoints / totalPoints) * 100) : 0;
-        
-        distributionSection.innerHTML = `
-          <div style="margin-bottom: 30px;">
-            <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Distribution</h3>
-            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center;">
-              <div style="position: relative; width: 120px; height: 120px; margin: 0 auto 20px;">
-                <svg style="position: absolute; top: 0; left: 0; transform: rotate(-90deg);" width="120" height="120" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="40" stroke="#374151" stroke-width="8" fill="none"/>
-                  <circle cx="50" cy="50" r="40" stroke="#22c55e" stroke-width="8" stroke-dasharray="${(reportData.totalPositivePoints / totalPoints || 0) * 251.2} 251.2" stroke-linecap="round" fill="none"/>
-                  <circle cx="50" cy="50" r="40" stroke="#f97316" stroke-width="8" stroke-dasharray="${(reportData.totalNegativePoints / totalPoints || 0) * 251.2} 251.2" stroke-dashoffset="-${(reportData.totalPositivePoints / totalPoints || 0) * 251.2}" stroke-linecap="round" fill="none"/>
-                </svg>
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                  <div style="font-size: 18px; font-weight: bold; color: #111827;">${positivePercentage}%</div>
-                  <div style="font-size: 10px; color: #6b7280;">Positive</div>
-                </div>
-              </div>
-              <div style="display: flex; justify-content: space-between; max-width: 200px; margin: 0 auto;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="width: 12px; height: 12px; background: #22c55e; border-radius: 50%; margin-top: 15px"></span>
-                  <span style="font-size: 12px; color: #6b7280;">Points</span>
-                </div>
-                <span style="font-weight: bold; color: #22c55e;">${reportData.totalPositivePoints}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; max-width: 200px; margin: 10px auto 0;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="width: 12px; height: 12px; background: #f97316; border-radius: 50%; margin-top: 15px"></span>
-                  <span style="font-size: 12px; color: #6b7280;">Participation Flags</span>
-                </div>
-                <span style="font-weight: bold; color: #ef4444;">${reportData.totalNegativePoints}</span>
-              </div>
-            </div>
-          </div>
-        `;
+                 // Distribution Chart
+         const distributionSection = document.createElement('div');
+         const totalPoints = reportData.totalPositivePoints + reportData.totalNegativePoints;
+         const positivePercentage = totalPoints > 0 ? Math.round((reportData.totalPositivePoints / totalPoints) * 100) : 0;
+         
+         distributionSection.innerHTML = `
+           <div style="margin-bottom: 30px; page-break-inside: avoid;">
+             <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Distribution</h3>
+             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center;">
+               <div style="position: relative; width: 120px; height: 120px; margin: 0 auto 20px;">
+                 <svg style="position: absolute; top: 0; left: 0; transform: rotate(-90deg);" width="120" height="120" viewBox="0 0 100 100">
+                   <circle cx="50" cy="50" r="40" stroke="#374151" stroke-width="8" fill="none"/>
+                   <circle cx="50" cy="50" r="40" stroke="#22c55e" stroke-width="8" stroke-dasharray="${(reportData.totalPositivePoints / totalPoints || 0) * 251.2} 251.2" stroke-linecap="round" fill="none"/>
+                   <circle cx="50" cy="50" r="40" stroke="#f97316" stroke-width="8" stroke-dasharray="${(reportData.totalNegativePoints / totalPoints || 0) * 251.2} 251.2" stroke-dashoffset="-${(reportData.totalPositivePoints / totalPoints || 0) * 251.2}" stroke-linecap="round" fill="none"/>
+                 </svg>
+                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                   <div style="font-size: 18px; font-weight: bold; color: #111827;">${positivePercentage}%</div>
+                   <div style="font-size: 10px; color: #6b7280;">Positive</div>
+                 </div>
+               </div>
+               <div style="display: flex; justify-content: space-between; max-width: 200px; margin: 0 auto;">
+                 <div style="display: flex; align-items: center; gap: 8px;">
+                   <span style="width: 12px; height: 12px; background: #22c55e; border-radius: 50%; margin-top: 15px"></span>
+                   <span style="font-size: 12px; color: #6b7280;">Points</span>
+                 </div>
+                 <span style="font-weight: bold; color: #22c55e;">${reportData.totalPositivePoints}</span>
+               </div>
+               <div style="display: flex; justify-content: space-between; max-width: 200px; margin: 10px auto 0;">
+                 <div style="display: flex; align-items: center; gap: 8px;">
+                   <span style="width: 12px; height: 12px; background: #f97316; border-radius: 50%; margin-top: 15px"></span>
+                   <span style="font-size: 12px; color: #6b7280;">Participation Flags</span>
+                 </div>
+                 <span style="font-weight: bold; color: #ef4444;">${reportData.totalNegativePoints}</span>
+               </div>
+             </div>
+           </div>
+         `;
         pdfContent.appendChild(distributionSection);
         
                  // Analytics Section
@@ -448,17 +450,27 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                    <p style="font-size: 20px; font-weight: bold; color: #2563eb; margin: 0;">${analyticsData.classAveragePositivePoints}</p>
                    <p style="font-size: 10px; color: #2563eb; margin: 5px 0 0 0;">per student</p>
                  </div>
-                 <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
-                   <h4 style="font-size: 12px; font-weight: 500; color: #166534; margin-bottom: 8px;">Total Points</h4>
-                   <p style="font-size: 20px; font-weight: bold; color: #22c55e; margin: 0;">${reportData.totalPositivePoints}</p>
-                   <p style="font-size: 10px; color: #22c55e; margin: 5px 0 0 0;">this period</p>
-                 </div>
-                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px;">
-                   <h4 style="font-size: 12px; font-weight: 500; color: #991b1b; margin-bottom: 8px;">Participation Flags</h4>
-                   <p style="font-size: 20px; font-weight: bold; color: #ef4444; margin: 0;">${reportData.totalNegativePoints}</p>
-                   <p style="font-size: 10px; color: #ef4444; margin: 5px 0 0 0;">this period</p>
-                 </div>
            `;
+           
+           // Only add student comparison and rank if a student is selected
+           if (selectedStudentId && analyticsData.studentComparisonMessage) {
+             analyticsSection.innerHTML += `
+               <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
+                 <h4 style="font-size: 12px; font-weight: 500; color: #166534; margin-bottom: 8px;">Student vs Class Average</h4>
+                 <p style="font-size: 12px; color: #15803d; line-height: 1.4; margin: 0;">${analyticsData.studentComparisonMessage}</p>
+               </div>
+             `;
+           }
+           
+           if (selectedStudentId && analyticsData.studentRankMessage) {
+             analyticsSection.innerHTML += `
+               <div style="background: #faf5ff; border: 1px solid #c4b5fd; border-radius: 8px; padding: 15px;">
+                 <h4 style="font-size: 12px; font-weight: 500; color: #7c3aed; margin-bottom: 8px;">Student Rank in Class</h4>
+                 <p style="font-size: 16px; font-weight: bold; color: #7c3aed; margin: 0;">${analyticsData.studentRankMessage}</p>
+                 <p style="font-size: 10px; color: #7c3aed; margin: 5px 0 0 0;">based on total points</p>
+               </div>
+             `;
+           }
           
           if (selectedStudentId && analyticsData.studentComparisonMessage) {
             analyticsSection.innerHTML += `
@@ -531,6 +543,45 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
            
            flagsSection.innerHTML += `</div></div>`;
            pdfContent.appendChild(flagsSection);
+           
+           // Add Student vs Class Average (Flags) section if student is selected
+           if (selectedStudentId && analyticsData.studentFlagsByCategoryComparison.length > 0) {
+             const studentComparisonSection = document.createElement('div');
+             studentComparisonSection.innerHTML = `
+               <div style="margin-bottom: 30px;">
+                 <h4 style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 15px;">Student vs Class Average (Flags)</h4>
+                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+             `;
+             
+             analyticsData.studentFlagsByCategoryComparison.forEach((item) => {
+               const colors = getColorByFlagCount(item.studentCount);
+               const bgColor = item.studentCount === 0 ? '#f9fafb' : item.studentCount <= 2 ? '#fef3c7' : '#fef2f2';
+               const borderColor = item.studentCount === 0 ? '#e5e7eb' : item.studentCount <= 2 ? '#f59e0b' : '#f87171';
+               const textColor = item.studentCount === 0 ? '#6b7280' : item.studentCount <= 2 ? '#d97706' : '#dc2626';
+               
+               studentComparisonSection.innerHTML += `
+                 <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 15px;">
+                   <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                     <span style="width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; background-color: ${item.category.color};"></span>
+                     <h5 style="font-size: 12px; font-weight: 500; color: #111827; margin: 0;">${item.category.name}</h5>
+                   </div>
+                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center;">
+                     <div>
+                       <div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin: 0;">${item.studentCount}</div>
+                       <div style="font-size: 10px; color: ${textColor}; margin: 2px 0 0 0;">Student</div>
+                     </div>
+                     <div>
+                       <div style="font-size: 16px; font-weight: bold; color: #6b7280; margin: 0;">${item.classAverage}</div>
+                       <div style="font-size: 10px; color: #6b7280; margin: 2px 0 0 0;">Class Avg</div>
+                     </div>
+                   </div>
+                 </div>
+               `;
+             });
+             
+             studentComparisonSection.innerHTML += `</div></div>`;
+             pdfContent.appendChild(studentComparisonSection);
+           }
          }
       }
       
