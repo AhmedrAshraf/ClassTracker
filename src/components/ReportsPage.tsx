@@ -459,27 +459,147 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
   };
 
   // --- EXPORT / DOWNLOAD HELPERS ---
-  const exportReport = (format: 'csv') => {
+  const exportReport = async (format: 'csv') => {
     if (!reportData) return;
     
-  const csvData = [
-      ['Student Name', 'Positive Points', 'Negative Points', 'Net Points'],
-      ...students.map(student => [
-        student.name,
-        student.total_positive_points.toString(),
-        student.total_negative_points.toString(),
-        (student.total_positive_points - student.total_negative_points).toString()
-      ])
-    ];
-    
-    const csvContent = csvData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `class-report-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    try {
+      // Get class name
+      const className = classes.find(c => c.id === selectedClassId)?.name || 'Class';
+      
+      // Get date range string
+      const getDateRangeString = () => {
+        const dateRange = getDateFilter();
+        if (dateRange) {
+          const startDate = new Date(dateRange.start).toLocaleDateString('en-US', { 
+            month: '2-digit', 
+            day: '2-digit', 
+            year: 'numeric' 
+          });
+          const endDate = new Date(dateRange.end).toLocaleDateString('en-US', { 
+            month: '2-digit', 
+            day: '2-digit', 
+            year: 'numeric' 
+          });
+          return `${startDate} to ${endDate}`;
+        }
+        return 'All Time';
+      };
+      
+      // Define the exact column order and names as specified
+      const columnHeaders = [
+        'Name',
+        'Points', 
+        'No Feedback‑Seeking / Use',
+        'Passive Participation',
+        'Off-Task / Distracted',
+        'Inauthentic Work',
+        'Not Following Directions',
+        'Needs Support to Engage',
+        'Unprepared for Class',
+        'Low Effort / Incomplete Work'
+      ];
+      
+      // Fetch all participation logs for the class and date range
+      const dateRange = getDateFilter();
+      let query = supabase
+        .from('participation_logs')
+        .select(`
+          *,
+          students!inner(id, name, class_id),
+          participation_categories(id, name, is_positive)
+        `)
+        .eq('students.class_id', selectedClassId);
+      
+      if (dateRange) {
+        query = query.gte('created_at', dateRange.start).lte('created_at', dateRange.end);
+      }
+      
+      const { data: logs, error } = await query;
+      if (error) throw error;
+      
+      // Build CSV data
+      const csvData = [];
+      
+      // Header row 1: Class name and date range
+      const headerRow1 = [className, '', '', '', '', '', '', '', '', ''];
+      csvData.push(headerRow1);
+      
+      // Header row 2: Date range with column headers
+      const headerRow2 = [getDateRangeString(), 'Points', 'No Feedback‑Seeking / Use', 'Passive Participation', 'Off-Task / Distracted', 'Inauthentic Work', 'Not Following Directions', 'Needs Support to Engage', 'Unprepared for Class', 'Low Effort / Incomplete Work'];
+      csvData.push(headerRow2);
+      
+      // Use students array instead of classWideReportData.allStudentsWithPoints
+      students.forEach(student => {
+        // Get student's logs for this date range
+        const studentLogs = logs?.filter(log => log.student_id === student.id) || [];
+        
+        // Calculate positive points (excluding Teacher Note)
+        const positiveLogs = studentLogs.filter(log => log.is_positive);
+        const positivePoints = positiveLogs.reduce((sum, log) => sum + log.points, 0);
+        
+        // Create a map to store flag counts by category name
+        const flagCountsByCategory: { [key: string]: number } = {};
+        
+        // Initialize all flag categories to 0
+        const flagCategories = [
+          'No Feedback‑Seeking / Use',
+          'Passive Participation',
+          'Off-Task / Distracted',
+          'Inauthentic Work',
+          'Not Following Directions',
+          'Needs Support to Engage',
+          'Unprepared for Class',
+          'Low Effort / Incomplete Work'
+        ];
+        
+        flagCategories.forEach(categoryName => {
+          flagCountsByCategory[categoryName] = 0;
+        });
+        
+        // Count actual flags by category name
+        studentLogs.forEach(log => {
+          if (!log.is_positive && log.participation_categories?.name !== 'Teacher Note') {
+            const categoryName = log.participation_categories?.name;
+            if (categoryName && flagCountsByCategory.hasOwnProperty(categoryName)) {
+              flagCountsByCategory[categoryName]++;
+            }
+          }
+        });
+        
+        // Build row in exact column order
+        const row = [
+          student.name,
+          positivePoints.toString(),
+          flagCountsByCategory['No Feedback‑Seeking / Use'].toString(),
+          flagCountsByCategory['Passive Participation'].toString(),
+          flagCountsByCategory['Off-Task / Distracted'].toString(),
+          flagCountsByCategory['Inauthentic Work'].toString(),
+          flagCountsByCategory['Not Following Directions'].toString(),
+          flagCountsByCategory['Needs Support to Engage'].toString(),
+          flagCountsByCategory['Unprepared for Class'].toString(),
+          flagCountsByCategory['Low Effort / Incomplete Work'].toString()
+        ];
+        
+        csvData.push(row);
+      });
+      
+      // Convert to CSV string
+      const csvContent = csvData.map(row => 
+        row.map(cell => `"${cell}"`).join(',')
+      ).join('\n');
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${className.toLowerCase().replace(/\s+/g, '-')}-participation-report-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      alert('Error exporting CSV. Please try again.');
+    }
   };
 
   const downloadAIReport = () => {
@@ -695,7 +815,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                 Export
               </label>
               <button
-                onClick={() => exportReport('csv')}
+                onClick={async () => await exportReport('csv')}
                 disabled={!reportData}
                 className="w-full px-3 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300 disabled:opacity-50 flex items-center justify-center space-x-2"
               >
