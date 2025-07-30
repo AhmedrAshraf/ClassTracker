@@ -164,6 +164,16 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
     }
   };
 
+  const getColorByStudentVsAverage = (studentCount: number, classAverage: number): { bg: string; text: string; border: string } => {
+    if (studentCount === 0) {
+      return { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' };
+    } else if (studentCount > classAverage) {
+      return { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200' };
+    } else {
+      return { bg: 'bg-green-100', text: 'text-green-600', border: 'border-green-200' };
+    }
+  };
+
   // --- HELPER TO CALCULATE REPORT DATA ---
   const calculateReportData = (logs: any[], studentsToAnalyze: Student[], includeStudentPoints = false): ReportData | ClassWideReportData => {
     const positiveLogs = logs?.filter(l => l.is_positive) || [];
@@ -554,10 +564,10 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
              `;
              
              analyticsData.studentFlagsByCategoryComparison.forEach((item) => {
-               const colors = getColorByFlagCount(item.studentCount);
-               const bgColor = item.studentCount === 0 ? '#f9fafb' : item.studentCount <= 2 ? '#fef3c7' : '#fef2f2';
-               const borderColor = item.studentCount === 0 ? '#e5e7eb' : item.studentCount <= 2 ? '#f59e0b' : '#f87171';
-               const textColor = item.studentCount === 0 ? '#6b7280' : item.studentCount <= 2 ? '#d97706' : '#dc2626';
+               const colors = getColorByStudentVsAverage(item.studentCount, item.classAverage);
+               const bgColor = item.studentCount === 0 ? '#f9fafb' : item.studentCount > item.classAverage ? '#fef3c7' : '#dcfce7';
+               const borderColor = item.studentCount === 0 ? '#e5e7eb' : item.studentCount > item.classAverage ? '#f59e0b' : '#22c55e';
+               const textColor = item.studentCount === 0 ? '#6b7280' : item.studentCount > item.classAverage ? '#d97706' : '#15803d';
                
                studentComparisonSection.innerHTML += `
                  <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 15px;">
@@ -1403,6 +1413,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                   <AlertTriangle className="w-5 h-5 mr-2 text-orange-500" />
                   Participation Flags Analytics
                 </h3>
+                {selectedStudentId && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-700">
+                      <strong>Color Legend:</strong> Gray = No flags, Orange = Above class average, Green = Below class average
+                    </p>
+                  </div>
+                )}
                 
                                 {/* Average Participation Flags Per Category (Class Level) */}
                 <div className="mb-8">
@@ -1455,7 +1472,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                     <h4 className="text-md font-semibold text-gray-800 mb-4">Student vs Class Average (Flags)</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {analyticsData.studentFlagsByCategoryComparison.map((item) => {
-                        const colors = getColorByFlagCount(item.studentCount);
+                        const colors = getColorByStudentVsAverage(item.studentCount, item.classAverage);
                         return (
                           <div key={item.category.id} className={`p-4 rounded-lg border ${colors.bg} ${colors.border}`}>
                             <div className="flex items-start space-x-2 mb-3">
