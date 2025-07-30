@@ -692,6 +692,85 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
     }
   };
 
+  const exportTeacherNotes = async () => {
+    if (!reportData) return;
+    
+    try {
+      // Get class name
+      const className = classes.find(c => c.id === selectedClassId)?.name || 'Class';
+      
+      // Get date range string
+      const getDateRangeString = () => {
+        const dateRange = getDateFilter();
+        if (dateRange) {
+          const startDate = new Date(dateRange.start).toLocaleDateString('en-US', { 
+            month: '2-digit', 
+            day: '2-digit', 
+            year: 'numeric' 
+          });
+          const endDate = new Date(dateRange.end).toLocaleDateString('en-US', { 
+            month: '2-digit', 
+            day: '2-digit', 
+            year: 'numeric' 
+          });
+          return `${startDate} to ${endDate}`;
+        }
+        return 'All Time';
+      };
+      
+      // Build CSV data for teacher notes
+      const csvData = [];
+      
+      // Header row 1: Class name and date range
+      const headerRow1 = [className, '', ''];
+      csvData.push(headerRow1);
+      
+      // Header row 2: Date range with column headers
+      const headerRow2 = [getDateRangeString(), 'Student', 'Teacher Notes'];
+      csvData.push(headerRow2);
+      
+      // Add teacher notes data
+      reportData.teacherNotes.forEach(note => {
+        const student = students.find(s => s.id === note.student_id);
+        const studentName = student?.name || 'Unknown';
+        const noteContent = note.notes || 'No content recorded';
+        const noteDate = new Date(note.created_at).toLocaleDateString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric'
+        }) + ' ' + new Date(note.created_at).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        const row = [
+          noteDate,
+          studentName,
+          noteContent
+        ];
+        
+        csvData.push(row);
+      });
+      
+      // Convert to CSV string
+      const csvContent = csvData.map(row => 
+        row.map(cell => `"${cell}"`).join(',')
+      ).join('\n');
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${className.toLowerCase().replace(/\s+/g, '-')}-teacher-notes-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting Teacher Notes:', error);
+      alert('Error exporting Teacher Notes. Please try again.');
+    }
+  };
+
 
 
   // --- ANALYTICS CALCULATIONS ---
@@ -901,7 +980,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
             {/* Export CSV */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">
-                Export
+                Export 
               </label>
               <button
                 onClick={async () => await exportReport('csv')}
@@ -1327,10 +1406,23 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
             {/* TEACHER NOTES */}
             {reportData.teacherNotes.length > 0 && (
               <div className="bg-white p-6 rounded-2xl border shadow-sm mb-8">
-                <h3 className="flex items-center mb-6 text-lg font-bold text-gray-900">
+
+                <div className="flex justify-between items-center mb-8">
+                <h3 className="flex items-center text-lg font-bold text-gray-900">
                   <MessageSquare className="w-5 h-5 mr-2 text-blue-500" />
                   Teacher Notes ({reportData.teacherNotes.length})
                 </h3>
+                <div>
+              <button
+                onClick={exportTeacherNotes}
+                disabled={!reportData || reportData.teacherNotes.length === 0}
+                className="w-full px-3 py-2 bg-blue-200 rounded-lg text-blue-700 hover:bg-blue-300 disabled:opacity-50 flex items-center justify-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+              </button>
+            </div>
+            </div>
                 <div className="space-y-4">
                   {reportData.teacherNotes.map((note, idx) => {
                     const stu = students.find(s => s.id === note.student_id);
