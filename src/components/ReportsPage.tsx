@@ -629,8 +629,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
       const headerRow2 = [getDateRangeString(), 'Points', 'No Feedback‑Seeking / Use', 'Passive Participation', 'Off-Task / Distracted', 'Inauthentic Work', 'Not Following Directions', 'Needs Support to Engage', 'Unprepared for Class', 'Low Effort / Incomplete Work'];
       csvData.push(headerRow2);
       
-      // Use students array instead of classWideReportData.allStudentsWithPoints
-      students.forEach(student => {
+      // Determine which students to export based on filter
+      const studentsToExport = selectedStudentId 
+        ? students.filter(student => student.id === selectedStudentId)
+        : students;
+      
+      // Use filtered students array
+      studentsToExport.forEach(student => {
         // Get student's logs for this date range
         const studentLogs = logs?.filter(log => log.student_id === student.id) || [];
         
