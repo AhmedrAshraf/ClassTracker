@@ -1,6 +1,5 @@
 // src/components/ReportsPage.tsx
 import React, { useState, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
 import html2pdf from 'html2pdf.js';
 import {
   ArrowLeft,
@@ -11,8 +10,6 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
-  Bot,
-  Sparkles,
   FileText,
   MessageSquare,
 } from 'lucide-react';
@@ -75,18 +72,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
   // --- CATEGORY DETAILS TOGGLE ---
   const [showCategoryDetails, setShowCategoryDetails] = useState<Record<string, boolean>>({});
 
-  // --- AI REPORT STATE ---
-  const [aiReportStudent, setAiReportStudent] = useState<string>('');
-  const [aiReportStartDate, setAiReportStartDate] = useState('');
-  const [aiReportEndDate, setAiReportEndDate] = useState('');
-  const [aiReportFormat, setAiReportFormat] = useState<'detailed' | 'summary'>('detailed');
-  const [aiReportTone, setAiReportTone] = useState<'formal' | 'friendly' | 'parent'>('formal');
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [generatedAIReportContent, setGeneratedAIReportContent] = useState<string>('');
-  const [aiReport, setAiReport] = useState<string>('');
-  const aiReportContentRef = React.useRef<HTMLDivElement>(null);
-
-  // --- DIRECT GENERATE BUTTON LOADING ---
+  // --- PDF GENERATION STATE ---
   const [loadingAIReport, setLoadingAIReport] = useState(false);
 
   // --- EFFECTS TO FETCH INITIAL DATA / RE-GENERATE ON FILTER CHANGE ---
@@ -199,7 +185,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
       });
     }
 
-    // category breakdown
+    // category breakdown - include all categories, even if count is 0
     const breakdown = categories
       .filter(c => !c.is_positive && c.name !== 'Teacher Note')
       .map(cat => {
@@ -214,16 +200,22 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
           .sort((a, b) => b.count - a.count);
         return { category: cat, count: logsForCat.length, students: studentsList };
       })
-      .filter(item => item.count > 0)
       .sort((a, b) => b.count - a.count);
+
+    // Calculate proper averages based on student totals
+    const totalStudentPositivePoints = studentsToAnalyze.reduce((sum, student) => sum + student.total_positive_points, 0);
+    const totalStudentNegativePoints = studentsToAnalyze.reduce((sum, student) => sum + student.total_negative_points, 0);
+    
+    const averagePositive = studentsToAnalyze.length ? totalStudentPositivePoints / studentsToAnalyze.length : 0;
+    const averageNegative = studentsToAnalyze.length ? totalStudentNegativePoints / studentsToAnalyze.length : 0;
 
     const baseData: ReportData = {
       totalPositivePoints: totalPositive,
       totalNegativePoints: totalNegative,
       netPoints: totalPositive - totalNegative,
       studentCount: studentsToAnalyze.length,
-      averagePositive: studentsToAnalyze.length ? totalPositive / studentsToAnalyze.length : 0,
-      averageNegative: studentsToAnalyze.length ? totalNegative / studentsToAnalyze.length : 0,
+      averagePositive,
+      averageNegative,
       topPerformers,
       needsAttention,
       dailyData,
@@ -284,156 +276,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
     }
   };
 
-  // --- GENERATE AI REPORT (existing) ---
-  const generateAIReport = async () => {
-    if (!selectedClassId) return;
-    setAiGenerating(true);
-    try {
-      // pull in the main filter's dates
-      const dateRange = getDateFilter();
-      // update AI‑report state so the header uses the correct dates
-      if (dateRange) {
-        setAiReportStartDate(dateRange.start);
-        setAiReportEndDate(dateRange.end);
-      } else {
-        setAiReportStartDate('');
-        setAiReportEndDate('');
-      }
 
-      let query = supabase
-        .from('participation_logs')
-        .select(`
-          *,
-          students!inner(id, name, class_id),
-          participation_categories(name, is_positive, color)
-        `)
-        .eq('students.class_id', selectedClassId);
-
-      if (dateRange) {
-        query = query
-          .gte('created_at', dateRange.start)
-          .lte('created_at', dateRange.end);
-      }
-
-      if (selectedStudentId) query = query.eq('student_id', selectedStudentId);
-
-      const { data: logs, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
-
-      // build markdown report...
-      let report = '';
-      
-      // Determine which students to generate reports for
-      let studentsToGenerateFor: Student[] = [];
-      if (selectedStudentId) {
-        // If a specific student is selected in the main filter, only generate for that student
-        const selectedStudent = students.find(s => s.id === selectedStudentId);
-        if (selectedStudent) {
-          studentsToGenerateFor = [selectedStudent];
-        }
-      } else {
-        // If no specific student is selected, generate for all students in the class
-        studentsToGenerateFor = students.filter(s => s.class_id === selectedClassId);
-      }
-      
-      if (studentsToGenerateFor.length === 0) {
-        report = 'No students found for the selected criteria.';
-      } else if (studentsToGenerateFor.length === 1) {
-        // Single student report - no class header needed
-        const student = studentsToGenerateFor[0];
-        const stuLogs = logs?.filter(l => l.student_id === student.id) || [];
-        report = _generateSingleStudentReportContent(
-          stuLogs,
-          student,
-          aiReportStartDate,
-          aiReportEndDate,
-          aiReportFormat,
-          aiReportTone
-        );
-      } else {
-        // Multiple students - generate class report with header
-        const className = classes.find(c => c.id === selectedClassId)?.name || 'Class';
-        const range = aiReportStartDate && aiReportEndDate
-          ? `${new Date(aiReportStartDate).toLocaleDateString()} - ${new Date(aiReportEndDate).toLocaleDateString()}`
-          : 'All Time';
-        report = `# Class Reports: ${className}\n**Period:** ${range}\n**Generated:** ${new Date().toLocaleDateString()}\n**Students:** ${studentsToGenerateFor.length}\n\n---\n\n`;
-        studentsToGenerateFor.forEach((stu, idx) => {
-          const stuLogs = logs?.filter(l => l.student_id === stu.id) || [];
-          report += _generateSingleStudentReportContent(
-            stuLogs,
-            stu,
-            aiReportStartDate,
-            aiReportEndDate,
-            aiReportFormat,
-            aiReportTone
-          );
-          if (idx < studentsToGenerateFor.length - 1) report += '\n\n---\n\n';
-        });
-      }
-
-      setAiReport(report);
-      setGeneratedAIReportContent(report);
-    } catch (e) {
-      console.error(e);
-      setAiReport('Error generating report. Please try again.');
-      setGeneratedAIReportContent('');
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  // --- SINGLE STUDENT REPORT MARKDOWN HELPER ---
-  const _generateSingleStudentReportContent = (
-    logs: any[],
-    student: Student,
-    startDate: string,
-    endDate: string,
-    format: 'detailed' | 'summary',
-    tone: 'formal' | 'friendly' | 'parent'
-  ): string => {
-    const positiveLogs = logs.filter(l => l.is_positive);
-    const negativeLogs = logs.filter(l => !l.is_positive);
-    const teacherNotes = negativeLogs.filter(l => l.participation_categories?.name === 'Teacher Note');
-    const behavioralAlerts = negativeLogs.filter(l => l.participation_categories?.name !== 'Teacher Note');
-
-    const totalPositive = positiveLogs.reduce((sum, log) => sum + log.points, 0);
-    const totalNegative = behavioralAlerts.reduce((sum, log) => sum + log.points, 0);
-
-    let report = `## ${student.name}\n\n`;
-
-    // Summary stats
-    report += `**Participation Points:** ${totalPositive}\n`;
-
-    if (format === 'detailed') {
-      // Behavioral alerts details
-      if (behavioralAlerts.length > 0) {
-        report += `### Areas for Improvement\n`;
-        const alertsByCategory = new Map<string, number>();
-        behavioralAlerts.forEach(log => {
-          const categoryName = log.participation_categories?.name || 'Unknown';
-          alertsByCategory.set(categoryName, (alertsByCategory.get(categoryName) || 0) + 1);
-        });
-        
-        Array.from(alertsByCategory.entries())
-          .sort((a, b) => b[1] - a[1])
-          .forEach(([category, count]) => {
-            report += `- **${category}:** ${count} time${count !== 1 ? 's' : ''}\n`;
-          });
-        report += '\n';
-      }
-
-      // Teacher notes
-      if (teacherNotes.length > 0) {
-        report += `### Teacher Notes (${teacherNotes.length})\n`;
-        teacherNotes.slice(0, 5).forEach((note, idx) => {
-          const date = new Date(note.created_at).toLocaleDateString();
-          report += `**${date}:** ${note.notes || 'No content recorded'}\n\n`;
-        });
-      }
-    }
-
-    return report;
-  };
 
   // --- DIRECT-GENERATE WITH DEFAULTS ---
   const handleGenerateDefaultAIReport = async () => {
@@ -441,18 +284,265 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
       alert('Please select a class first.');
       return;
     }
-    // reset any prior AI state
-    setAiReport('');
-    setGeneratedAIReportContent('');
-    setAiReportStudent('');
-    setAiReportStartDate('');
-    setAiReportEndDate('');
-    setAiReportFormat('detailed');
-    setAiReportTone('formal');
-
+    
     setLoadingAIReport(true);
     try {
-      await generateAIReport();
+      // Generate the report data first
+      await generateReport();
+      
+      // Create comprehensive PDF content with all visuals
+      const className = classes.find(c => c.id === selectedClassId)?.name || 'Class';
+      const dateRange = getDateFilter();
+      const dateRangeString = dateRange 
+        ? `${new Date(dateRange.start).toLocaleDateString()} - ${new Date(dateRange.end).toLocaleDateString()}`
+        : 'All Time';
+      
+             // Create the PDF content element
+       const pdfContent = document.createElement('div');
+       pdfContent.className = 'pdf-content bg-white p-8';
+       pdfContent.style.fontFamily = 'Arial, sans-serif';
+       pdfContent.style.maxWidth = '900px';
+       pdfContent.style.margin = '0 auto';
+      
+      // Header
+      const header = document.createElement('div');
+      header.innerHTML = `
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 20px;">
+          <h1 style="font-size: 28px; font-weight: bold; color: #111827; margin: 0 0 10px 0;">Reports & Analytics</h1>
+          <h2 style="font-size: 20px; color: #374151; margin: 0 0 5px 0;">${className}</h2>
+          <p style="font-size: 14px; color: #6b7280; margin: 0;">Period: ${dateRangeString}</p>
+          <p style="font-size: 14px; color: #6b7280; margin: 0;">Generated: ${new Date().toLocaleDateString()}</p>
+        </div>
+      `;
+      pdfContent.appendChild(header);
+      
+      // Summary Cards
+      if (reportData) {
+        const summarySection = document.createElement('div');
+        summarySection.innerHTML = `
+          <div style="margin-bottom: 30px;">
+            <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Summary</h3>
+            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+              <div style="flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Total Points</span>
+                  <span style="color: #22c55e;">✓</span>
+                </div>
+                <div style="font-size: 24px; font-weight: bold; color: #22c55e;">${reportData.totalPositivePoints}</div>
+              </div>
+              <div style="flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-size: 12px; color: #6b7280; font-weight: 500;">Participation Flags</span>
+                  <span style="color: #ef4444;">⚠</span>
+                </div>
+                <div style="font-size: 24px; font-weight: bold; color: #ef4444;">${reportData.totalNegativePoints}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        pdfContent.appendChild(summarySection);
+        
+                 // Daily Trend Chart
+         const dailyTrendSection = document.createElement('div');
+         dailyTrendSection.innerHTML = `
+           <div style="margin-bottom: 30px;">
+             <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Daily Trend (Last 7 Days)</h3>
+             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
+         `;
+         
+         const maxPoints = Math.max(...reportData.dailyData.map(d => Math.max(d.positive, d.negative)));
+         reportData.dailyData.forEach((day, i) => {
+           const positiveWidth = Math.max((day.positive / maxPoints) * 100, 5);
+           const negativeWidth = Math.max((day.negative / maxPoints) * 100, 5);
+           
+           dailyTrendSection.innerHTML += `
+             <div style="display: flex; align-items: center; margin-bottom: 12px;">
+               <span style="width: 40px; font-size: 12px; color: #6b7280; flex-shrink: 0;">${day.date}</span>
+               <div style="flex: 1; display: flex; gap: 2px; margin-left: 10px; height: 24px;">
+                 <div style="background: rgba(34, 197, 94, 0.3); border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 4px; height: 24px; width: ${positiveWidth}%; min-width: 20px; display: flex; align-items: center; justify-content: center; text-align: center;">
+                   <span style="font-size: 10px; color: #15803d; font-weight: bold; line-height: 24px; display: inline-block; width: 100%; padding-bottom: 12px;">${day.positive}</span>
+                 </div>
+                 <div style="background: rgba(239, 68, 68, 0.3); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 4px; height: 24px; width: ${negativeWidth}%; min-width: 20px; display: flex; align-items: center; justify-content: center; text-align: center;">
+                   <span style="font-size: 10px; color: #dc2626; font-weight: bold; line-height: 24px; display: inline-block; width: 100%; padding-bottom: 12px;">${day.negative}</span>
+                 </div>
+               </div>
+             </div>
+           `;
+         });
+        
+        dailyTrendSection.innerHTML += `
+              <div style="display: flex; justify-content: center; gap: 20px; margin-top: 15px; font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <span style="width: 12px; height: 12px; background: rgba(34, 197, 94, 0.3); border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 2px; margin-top: 15px"></span>
+                  <span style="color: #6b7280;">Points</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <span style="width: 12px; height: 12px; background: rgba(239, 68, 68, 0.3); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 2px; margin-top: 15px"></span>
+                  <span style="color: #6b7280;">Participation Flags</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        pdfContent.appendChild(dailyTrendSection);
+        
+        // Distribution Chart
+        const distributionSection = document.createElement('div');
+        const totalPoints = reportData.totalPositivePoints + reportData.totalNegativePoints;
+        const positivePercentage = totalPoints > 0 ? Math.round((reportData.totalPositivePoints / totalPoints) * 100) : 0;
+        
+        distributionSection.innerHTML = `
+          <div style="margin-bottom: 30px;">
+            <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Distribution</h3>
+            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center;">
+              <div style="position: relative; width: 120px; height: 120px; margin: 0 auto 20px;">
+                <svg style="position: absolute; top: 0; left: 0; transform: rotate(-90deg);" width="120" height="120" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" stroke="#374151" stroke-width="8" fill="none"/>
+                  <circle cx="50" cy="50" r="40" stroke="#22c55e" stroke-width="8" stroke-dasharray="${(reportData.totalPositivePoints / totalPoints || 0) * 251.2} 251.2" stroke-linecap="round" fill="none"/>
+                  <circle cx="50" cy="50" r="40" stroke="#f97316" stroke-width="8" stroke-dasharray="${(reportData.totalNegativePoints / totalPoints || 0) * 251.2} 251.2" stroke-dashoffset="-${(reportData.totalPositivePoints / totalPoints || 0) * 251.2}" stroke-linecap="round" fill="none"/>
+                </svg>
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                  <div style="font-size: 18px; font-weight: bold; color: #111827;">${positivePercentage}%</div>
+                  <div style="font-size: 10px; color: #6b7280;">Positive</div>
+                </div>
+              </div>
+              <div style="display: flex; justify-content: space-between; max-width: 200px; margin: 0 auto;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 12px; height: 12px; background: #22c55e; border-radius: 50%; margin-top: 15px"></span>
+                  <span style="font-size: 12px; color: #6b7280;">Points</span>
+                </div>
+                <span style="font-weight: bold; color: #22c55e;">${reportData.totalPositivePoints}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; max-width: 200px; margin: 10px auto 0;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 12px; height: 12px; background: #f97316; border-radius: 50%; margin-top: 15px"></span>
+                  <span style="font-size: 12px; color: #6b7280;">Participation Flags</span>
+                </div>
+                <span style="font-weight: bold; color: #ef4444;">${reportData.totalNegativePoints}</span>
+              </div>
+            </div>
+          </div>
+        `;
+        pdfContent.appendChild(distributionSection);
+        
+                 // Analytics Section
+         if (analyticsData) {
+           const analyticsSection = document.createElement('div');
+           analyticsSection.innerHTML = `
+             <div style="margin-bottom: 30px;">
+               <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Participation Points Analytics</h3>
+               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 15px;">
+                   <h4 style="font-size: 12px; font-weight: 500; color: #1e40af; margin-bottom: 8px;">Class Average Points</h4>
+                   <p style="font-size: 20px; font-weight: bold; color: #2563eb; margin: 0;">${analyticsData.classAveragePositivePoints}</p>
+                   <p style="font-size: 10px; color: #2563eb; margin: 5px 0 0 0;">per student</p>
+                 </div>
+                 <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
+                   <h4 style="font-size: 12px; font-weight: 500; color: #166534; margin-bottom: 8px;">Total Points</h4>
+                   <p style="font-size: 20px; font-weight: bold; color: #22c55e; margin: 0;">${reportData.totalPositivePoints}</p>
+                   <p style="font-size: 10px; color: #22c55e; margin: 5px 0 0 0;">this period</p>
+                 </div>
+                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px;">
+                   <h4 style="font-size: 12px; font-weight: 500; color: #991b1b; margin-bottom: 8px;">Participation Flags</h4>
+                   <p style="font-size: 20px; font-weight: bold; color: #ef4444; margin: 0;">${reportData.totalNegativePoints}</p>
+                   <p style="font-size: 10px; color: #ef4444; margin: 5px 0 0 0;">this period</p>
+                 </div>
+           `;
+          
+          if (selectedStudentId && analyticsData.studentComparisonMessage) {
+            analyticsSection.innerHTML += `
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
+                <h4 style="font-size: 12px; font-weight: 500; color: #166534; margin-bottom: 8px;">Student vs Class Average</h4>
+                <p style="font-size: 12px; color: #15803d; line-height: 1.4; margin: 0;">${analyticsData.studentComparisonMessage}</p>
+              </div>
+            `;
+          }
+          
+          if (selectedStudentId && analyticsData.studentRankMessage) {
+            analyticsSection.innerHTML += `
+              <div style="background: #faf5ff; border: 1px solid #c4b5fd; border-radius: 8px; padding: 15px;">
+                <h4 style="font-size: 12px; font-weight: 500; color: #7c3aed; margin-bottom: 8px;">Student Rank in Class</h4>
+                <p style="font-size: 16px; font-weight: bold; color: #7c3aed; margin: 0;">${analyticsData.studentRankMessage}</p>
+                <p style="font-size: 10px; color: #7c3aed; margin: 5px 0 0 0;">based on total points</p>
+              </div>
+            `;
+          }
+          
+          analyticsSection.innerHTML += `</div></div>`;
+          pdfContent.appendChild(analyticsSection);
+        }
+        
+                 // Participation Flags Analytics
+         if (analyticsData) {
+           const flagsSection = document.createElement('div');
+           flagsSection.innerHTML = `
+             <div style="margin-bottom: 30px;">
+               <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Participation Flags Analytics</h3>
+               <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
+           `;
+           
+           // Check if there are any flags in the current period (not just class-wide)
+           const hasFlagsInPeriod = reportData && reportData.totalNegativePoints > 0;
+           
+           if (hasFlagsInPeriod && analyticsData.classFlagsByCategory.some(item => item.totalFlags > 0)) {
+             analyticsData.classFlagsByCategory.forEach((item, index) => {
+               const maxFlags = Math.max(...analyticsData.classFlagsByCategory.map(c => c.totalFlags));
+               const barWidth = maxFlags > 0 ? (item.totalFlags / maxFlags) * 100 : 0;
+               
+               flagsSection.innerHTML += `
+                 <div style="display: flex; align-items: flex-start; margin-bottom: 16px;">
+                   <div style="display: flex; align-items: flex-start; min-width: 0; flex: 1; margin-right: 20px;">
+                     <span style="width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; margin-top: 2px; background-color: ${item.category.color}; flex-shrink: 0;"></span>
+                     <div style="font-size: 12px; color: #374151; word-wrap: break-word; line-height: 1.4; max-width: 200px;">${item.category.name}</div>
+                   </div>
+                   <div style="display: flex; align-items: center; gap: 15px; flex-shrink: 0;">
+                     <div style="text-align: right;">
+                       <div style="font-size: 12px; font-weight: 500; color: #111827;">
+                         ${selectedStudentId ? `${item.totalFlags}` : `${item.totalFlags} total`}
+                       </div>
+                     </div>
+                     <div style="width: 100px; background: #e5e7eb; border-radius: 4px; height: 8px;">
+                       <div style="height: 8px; border-radius: 4px; width: ${barWidth}%; background-color: ${item.category.color};"></div>
+                     </div>
+                   </div>
+                 </div>
+               `;
+             });
+           } else {
+             flagsSection.innerHTML += `
+               <div style="text-align: center; padding: 30px;">
+                 <div style="color: #6b7280; font-size: 14px; font-weight: 500;">
+                   No participation flags recorded for this period
+                 </div>
+               </div>
+             `;
+           }
+           
+           flagsSection.innerHTML += `</div></div>`;
+           pdfContent.appendChild(flagsSection);
+         }
+      }
+      
+      // Add the PDF content to the DOM temporarily
+      document.body.appendChild(pdfContent);
+      
+      // Generate PDF
+      const opt = {
+        margin: 0.5,
+        filename: `${className.toLowerCase().replace(/\s+/g, '-')}-comprehensive-report-${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+      
+      await html2pdf().set(opt).from(pdfContent).save();
+      
+      // Clean up
+      document.body.removeChild(pdfContent);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
     } finally {
       setLoadingAIReport(false);
     }
@@ -602,24 +692,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
     }
   };
 
-  const downloadAIReport = () => {
-    if (!aiReportContentRef.current) return;
 
-    const element = aiReportContentRef.current;
-    const opt = {
-      margin: 1,
-      filename: `ai-report-${new Date().toISOString().split('T')[0]}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opt).from(element).save();
-  };
 
   // --- ANALYTICS CALCULATIONS ---
   const getAnalyticsData = () => {
     if (!classWideReportData || !reportData) return null;
+    
+    // Ensure we have valid data
+    if (!Array.isArray(categories) || categories.length === 0) return null;
 
     const classAveragePositivePoints = classWideReportData.averagePositive;
     
@@ -709,16 +789,25 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
          classAverage: Math.round(classAverage)
         };
       })
-      .filter(item => item.totalFlags > 0)
       .sort((a, b) => b.totalFlags - a.totalFlags);
 
-    return {
+    const result = {
       classAveragePositivePoints: Math.round(classAveragePositivePoints),
       studentComparisonMessage,
       studentRankMessage,
       classFlagsByCategory,
       studentFlagsByCategoryComparison
     };
+    
+    // Debug logging to ensure data is calculated properly
+    console.log('Analytics Data:', {
+      classAveragePositivePoints: result.classAveragePositivePoints,
+      classFlagsByCategory: result.classFlagsByCategory.length,
+      hasFlagsInPeriod: reportData.totalNegativePoints > 0,
+      totalNegativePoints: reportData.totalNegativePoints
+    });
+    
+    return result;
   };
 
   const analyticsData = getAnalyticsData();
@@ -824,18 +913,18 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
               </button>
             </div>
 
-            {/* AI Report Assistant */}
+            {/* Generate PDF Report */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">
-                Report Assistant
+                Generate PDF Report
               </label>
               <button
                 onClick={handleGenerateDefaultAIReport}
                 disabled={!selectedClassId || loadingAIReport}
                 className="w-full px-3 py-2 bg-green-500 rounded-lg text-white hover:bg-green-600 disabled:opacity-50 flex items-center justify-center space-x-2"
               >
-                <Bot className="w-4 h-4" />
-                <span>{loadingAIReport ? 'Generating…' : 'Generate'}</span>
+                <FileText className="w-4 h-4" />
+                <span>{loadingAIReport ? 'Generating PDF…' : 'Generate PDF'}</span>
               </button>
             </div>
           </div>
@@ -1154,44 +1243,53 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
             )}
 
             {/* PARTICIPATION FLAGS ANALYTICS */}
-            {analyticsData && analyticsData.classFlagsByCategory.length > 0 && (
+            {analyticsData && (
               <div className="bg-white p-6 rounded-2xl border shadow-sm mb-8">
                 <h3 className="flex items-center mb-6 text-lg font-bold text-gray-900">
                   <AlertTriangle className="w-5 h-5 mr-2 text-orange-500" />
                   Participation Flags Analytics
                 </h3>
                 
-                {/* Average Participation Flags Per Category (Class Level) */}
+                                {/* Average Participation Flags Per Category (Class Level) */}
                 <div className="mb-8">
-                  <div className="space-y-3">
-                    {analyticsData.classFlagsByCategory.map((item, index) => (
-                      <div key={item.category.id} className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2 min-w-0 flex-1">
-                          <span
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: item.category.color }}
-                          ></span>
-                          <span className="text-sm text-gray-700 truncate">{item.category.name}</span>
-                        </div>
-                        <div className="flex items-center space-x-4 flex-shrink-0">
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-gray-900">
-                              {selectedStudentId ? `${item.totalFlags}` : `${item.totalFlags} total`}
+                  {/* Check if there are any flags in the current period (not just class-wide) */}
+                  {reportData && reportData.totalNegativePoints > 0 && analyticsData.classFlagsByCategory.some(item => item.totalFlags > 0) ? (
+                    <div className="space-y-3">
+                      {analyticsData.classFlagsByCategory.map((item, index) => (
+                        <div key={item.category.id} className="flex items-start space-x-4">
+                          <div className="flex items-start space-x-2 min-w-0 flex-1">
+                            <span
+                              className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
+                              style={{ backgroundColor: item.category.color }}
+                            ></span>
+                            <span className="text-sm text-gray-700 break-words leading-relaxed">{item.category.name}</span>
+                          </div>
+                          <div className="flex items-center space-x-4 flex-shrink-0">
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-gray-900">
+                                {selectedStudentId ? `${item.totalFlags}` : `${item.totalFlags} total`}
+                              </div>
+                            </div>
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="h-2 rounded-full"
+                                style={{
+                                  backgroundColor: item.category.color,
+                                  width: `${Math.min((item.totalFlags / Math.max(...analyticsData.classFlagsByCategory.map(c => c.totalFlags), 1)) * 100, 100)}%`
+                                }}
+                              ></div>
                             </div>
                           </div>
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="h-2 rounded-full"
-                              style={{
-                                backgroundColor: item.category.color,
-                                width: `${Math.min((item.totalFlags / Math.max(...analyticsData.classFlagsByCategory.map(c => c.totalFlags), 1)) * 100, 100)}%`
-                              }}
-                            ></div>
-                          </div>
                         </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-gray-500 text-sm font-medium">
+                        No participation flags recorded for this period
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Student vs Class in Flags (only when student is selected) */}
@@ -1201,12 +1299,12 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {analyticsData.studentFlagsByCategoryComparison.map((item) => (
                         <div key={item.category.id} className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                          <div className="flex items-center space-x-2 mb-3">
+                          <div className="flex items-start space-x-2 mb-3">
                             <span
-                              className="w-3 h-3 rounded-full"
+                              className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
                               style={{ backgroundColor: item.category.color }}
                             ></span>
-                            <h5 className="font-medium text-gray-900 text-sm">{item.category.name}</h5>
+                            <h5 className="font-medium text-gray-900 text-sm break-words leading-relaxed">{item.category.name}</h5>
                           </div>
                           <div className="grid grid-cols-2 gap-4 text-center">
                             <div>
@@ -1263,31 +1361,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
               </div>
             )}
 
-            {/* AI GENERATED REPORT */}
-            {generatedAIReportContent && (
-              <div className="bg-white p-6 rounded-2xl border shadow-sm mb-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="flex items-center text-lg font-bold text-gray-900">
-                    <Bot className="w-5 h-5 mr-2 text-green-500" />
-                    Generated Report
-                  </h3>
-                  <button
-                    onClick={downloadAIReport}
-                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center space-x-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download PDF</span>
-                  </button>
-                </div>
-                <div ref={aiReportContentRef} className="bg-white p-8 rounded-lg border">
-                  <div className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-gray-700 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-li:text-gray-700">
-                    <ReactMarkdown>
-                      {generatedAIReportContent}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              </div>
-            )}
+
           </>
         ) : (
           <div className="text-center py-16">
