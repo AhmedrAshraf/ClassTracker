@@ -153,6 +153,17 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
     return { start: start.toISOString(), end: now.toISOString() };
   };
 
+  // --- HELPER FUNCTIONS ---
+  const getColorByFlagCount = (count: number): { bg: string; text: string; border: string } => {
+    if (count === 0) {
+      return { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' };
+    } else if (count <= 2) {
+      return { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200' };
+    } else {
+      return { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' };
+    }
+  };
+
   // --- HELPER TO CALCULATE REPORT DATA ---
   const calculateReportData = (logs: any[], studentsToAnalyze: Student[], includeStudentPoints = false): ReportData | ClassWideReportData => {
     const positiveLogs = logs?.filter(l => l.is_positive) || [];
@@ -1057,7 +1068,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                   <h3 className="text-sm font-medium text-gray-600">Participation Flags</h3>
                   <AlertTriangle className="w-4 h-4 text-red-400" />
                 </div>
-                <p className="text-2xl font-bold text-red-400">
+                <p className={`text-2xl font-bold ${getColorByFlagCount(reportData.totalNegativePoints).text}`}>
                   {reportData.totalNegativePoints}
                 </p>
               </div>
@@ -1089,12 +1100,12 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                           </span>
                         </div>
                         <div
-                          className="bg-orange-500/30 border border-red-500/50 rounded h-6 flex items-center justify-center"
+                          className={`border rounded h-6 flex items-center justify-center ${getColorByFlagCount(day.negative).bg}`}
                           style={{
                             width: `${Math.max((day.negative / maxPoints) * 100, 5)}%`,
                           }}
                         >
-                          <span className="text-xs text-red-700 font-bold">
+                          <span className={`text-xs font-bold ${getColorByFlagCount(day.negative).text}`}>
                             {day.negative}
                           </span>
                         </div>
@@ -1108,8 +1119,16 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                     <span className="text-gray-600">Points</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <span className="w-3 h-3 bg-orange-500/30 border border-red-500/50 rounded"></span>
-                    <span className="text-gray-600">Participation Flags</span>
+                    <span className="w-3 h-3 bg-gray-100 border border-gray-200 rounded"></span>
+                    <span className="text-gray-600">Flags (0)</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="w-3 h-3 bg-orange-50 border border-orange-200 rounded"></span>
+                    <span className="text-gray-600">Flags (1-2)</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="w-3 h-3 bg-red-50 border border-red-200 rounded"></span>
+                    <span className="text-gray-600">Flags (3+)</span>
                   </div>
                 </div>
               </div>
@@ -1334,33 +1353,36 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                   {/* Check if there are any flags in the current period (not just class-wide) */}
                   {reportData && reportData.totalNegativePoints > 0 && analyticsData.classFlagsByCategory.some(item => item.totalFlags > 0) ? (
                     <div className="space-y-3">
-                      {analyticsData.classFlagsByCategory.map((item, index) => (
-                        <div key={item.category.id} className="flex items-start space-x-4">
-                          <div className="flex items-start space-x-2 min-w-0 flex-1">
-                            <span
-                              className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
-                              style={{ backgroundColor: item.category.color }}
-                            ></span>
-                            <span className="text-sm text-gray-700 break-words leading-relaxed">{item.category.name}</span>
-                          </div>
-                          <div className="flex items-center space-x-4 flex-shrink-0">
-                            <div className="text-right">
-                              <div className="text-sm font-medium text-gray-900">
-                                {selectedStudentId ? `${item.totalFlags}` : `${item.totalFlags} total`}
+                      {analyticsData.classFlagsByCategory.map((item, index) => {
+                        const colors = getColorByFlagCount(item.totalFlags);
+                        return (
+                          <div key={item.category.id} className={`flex items-start space-x-4 p-3 rounded-lg border ${colors.bg} ${colors.border}`}>
+                            <div className="flex items-start space-x-2 min-w-0 flex-1">
+                              <span
+                                className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
+                                style={{ backgroundColor: item.category.color }}
+                              ></span>
+                              <span className="text-sm text-gray-700 break-words leading-relaxed">{item.category.name}</span>
+                            </div>
+                            <div className="flex items-center space-x-4 flex-shrink-0">
+                              <div className="text-right">
+                                <div className={`text-sm font-medium ${colors.text}`}>
+                                  {selectedStudentId ? `${item.totalFlags}` : `${item.totalFlags} total`}
+                                </div>
+                              </div>
+                              <div className="w-24 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full"
+                                  style={{
+                                    backgroundColor: item.category.color,
+                                    width: `${Math.min((item.totalFlags / Math.max(...analyticsData.classFlagsByCategory.map(c => c.totalFlags), 1)) * 100, 100)}%`
+                                  }}
+                                ></div>
                               </div>
                             </div>
-                            <div className="w-24 bg-gray-200 rounded-full h-2">
-                              <div
-                                className="h-2 rounded-full"
-                                style={{
-                                  backgroundColor: item.category.color,
-                                  width: `${Math.min((item.totalFlags / Math.max(...analyticsData.classFlagsByCategory.map(c => c.totalFlags), 1)) * 100, 100)}%`
-                                }}
-                              ></div>
-                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8">
@@ -1376,27 +1398,30 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                   <div>
                     <h4 className="text-md font-semibold text-gray-800 mb-4">Student vs Class Average (Flags)</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {analyticsData.studentFlagsByCategoryComparison.map((item) => (
-                        <div key={item.category.id} className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                          <div className="flex items-start space-x-2 mb-3">
-                            <span
-                              className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
-                              style={{ backgroundColor: item.category.color }}
-                            ></span>
-                            <h5 className="font-medium text-gray-900 text-sm break-words leading-relaxed">{item.category.name}</h5>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 text-center">
-                            <div>
-                              <div className="text-lg font-bold text-orange-600">{item.studentCount}</div>
-                              <div className="text-xs text-orange-600"></div>
+                      {analyticsData.studentFlagsByCategoryComparison.map((item) => {
+                        const colors = getColorByFlagCount(item.studentCount);
+                        return (
+                          <div key={item.category.id} className={`p-4 rounded-lg border ${colors.bg} ${colors.border}`}>
+                            <div className="flex items-start space-x-2 mb-3">
+                              <span
+                                className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
+                                style={{ backgroundColor: item.category.color }}
+                              ></span>
+                              <h5 className="font-medium text-gray-900 text-sm break-words leading-relaxed">{item.category.name}</h5>
                             </div>
-                            <div>
-                              <div className="text-lg font-bold text-gray-600">{item.classAverage}</div>
-                              <div className="text-xs text-gray-600">Class Avg</div>
+                            <div className="grid grid-cols-2 gap-4 text-center">
+                              <div>
+                                <div className={`text-lg font-bold ${colors.text}`}>{item.studentCount}</div>
+                                <div className={`text-xs ${colors.text}`}>Student</div>
+                              </div>
+                              <div>
+                                <div className="text-lg font-bold text-gray-600">{item.classAverage}</div>
+                                <div className="text-xs text-gray-600">Class Avg</div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
