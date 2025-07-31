@@ -369,8 +369,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
          const dailyTrendSection = document.createElement('div');
          dailyTrendSection.innerHTML = `
            <div style="margin-bottom: 30px;">
-             <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Daily Trend (Last 7 Days)</h3>
-             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
+             <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 20px;">Daily Trend (Last 7 Days)</h3>
          `;
          
          const maxPoints = Math.max(...reportData.dailyData.map(d => Math.max(d.positive, d.negative)));
@@ -505,7 +504,6 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
            flagsSection.innerHTML = `
              <div style="margin-bottom: 30px;">
                <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Participation Flags Analytics</h3>
-               <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
            `;
            
            // Check if there are any flags in the current period (not just class-wide)
@@ -564,7 +562,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                const textColor = item.studentCount === 0 ? '#6b7280' : item.studentCount > item.classAverage ? '#d97706' : '#15803d';
                
                studentComparisonSection.innerHTML = `
-               <div style="margin-bottom: 30px;">
+               <div style="margin-bottom: 30px; margin-top: 150px;">
                  <h4 style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 15px;">
                    Student vs Class Average (Flags)
                  </h4>
