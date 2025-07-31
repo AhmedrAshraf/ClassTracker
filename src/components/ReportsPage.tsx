@@ -1413,49 +1413,38 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
                   <AlertTriangle className="w-5 h-5 mr-2 text-orange-500" />
                   Participation Flags Analytics
                 </h3>
-                {selectedStudentId && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-700">
-                      <strong>Color Legend:</strong> Gray = No flags, Orange = Above class average, Green = Below class average
-                    </p>
-                  </div>
-                )}
-                
-                                {/* Average Participation Flags Per Category (Class Level) */}
+                {/* Average Participation Flags Per Category (Class Level) */}
                 <div className="mb-8">
                   {/* Check if there are any flags in the current period (not just class-wide) */}
                   {reportData && reportData.totalNegativePoints > 0 && analyticsData.classFlagsByCategory.some(item => item.totalFlags > 0) ? (
                     <div className="space-y-3">
-                      {analyticsData.classFlagsByCategory.map((item, index) => {
-                        const colors = getColorByFlagCount(item.totalFlags);
-                        return (
-                          <div key={item.category.id} className={`flex items-start space-x-4 p-3 rounded-lg border ${colors.bg} ${colors.border}`}>
-                            <div className="flex items-start space-x-2 min-w-0 flex-1">
-                              <span
-                                className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
-                                style={{ backgroundColor: item.category.color }}
-                              ></span>
-                              <span className="text-sm text-gray-700 break-words leading-relaxed">{item.category.name}</span>
+                      {analyticsData.classFlagsByCategory.map((item, index) => (
+                        <div key={item.category.id} className="flex items-start space-x-4">
+                          <div className="flex items-start space-x-2 min-w-0 flex-1">
+                            <span
+                              className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
+                              style={{ backgroundColor: item.category.color }}
+                            ></span>
+                            <span className="text-sm text-gray-700 break-words leading-relaxed">{item.category.name}</span>
+                          </div>
+                          <div className="flex items-center space-x-4 flex-shrink-0">
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-gray-900">
+                                {selectedStudentId ? `${item.totalFlags}` : `${item.totalFlags} total`}
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-4 flex-shrink-0">
-                              <div className="text-right">
-                                <div className={`text-sm font-medium ${colors.text}`}>
-                                  {selectedStudentId ? `${item.totalFlags}` : `${item.totalFlags} total`}
-                                </div>
-                              </div>
-                              <div className="w-24 bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="h-2 rounded-full"
-                                  style={{
-                                    backgroundColor: item.category.color,
-                                    width: `${Math.min((item.totalFlags / Math.max(...analyticsData.classFlagsByCategory.map(c => c.totalFlags), 1)) * 100, 100)}%`
-                                  }}
-                                ></div>
-                              </div>
+                            <div className="w-24 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="h-2 rounded-full"
+                                style={{
+                                  backgroundColor: item.category.color,
+                                  width: `${Math.min((item.totalFlags / Math.max(...analyticsData.classFlagsByCategory.map(c => c.totalFlags), 1)) * 100, 100)}%`
+                                }}
+                              ></div>
                             </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="text-center py-8">
