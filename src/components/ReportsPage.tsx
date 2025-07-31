@@ -504,8 +504,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
           analyticsSection.innerHTML += `</div></div>`;
           pdfContent.appendChild(analyticsSection);
         }
-        
-                 // Participation Flags Analytics
+
          if (analyticsData) {
            const flagsSection = document.createElement('div');
            flagsSection.innerHTML = `
@@ -560,37 +559,58 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
              studentComparisonSection.innerHTML = `
                <div style="margin-bottom: 30px;">
                  <h4 style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 15px;">Student vs Class Average (Flags)</h4>
-                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-             `;
-             
+                 <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+            `;
+
              analyticsData.studentFlagsByCategoryComparison.forEach((item) => {
                const colors = getColorByStudentVsAverage(item.studentCount, item.classAverage);
                const bgColor = item.studentCount === 0 ? '#f9fafb' : item.studentCount > item.classAverage ? '#fef3c7' : '#dcfce7';
                const borderColor = item.studentCount === 0 ? '#e5e7eb' : item.studentCount > item.classAverage ? '#f59e0b' : '#22c55e';
                const textColor = item.studentCount === 0 ? '#6b7280' : item.studentCount > item.classAverage ? '#d97706' : '#15803d';
                
-               studentComparisonSection.innerHTML += `
-                 <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 15px;">
-                   <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                     <span style="width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; background-color: ${item.category.color};"></span>
-                     <h5 style="font-size: 12px; font-weight: 500; color: #111827; margin: 0;">${item.category.name}</h5>
-                   </div>
-                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center;">
-                     <div>
-                       <div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin: 0;">${item.studentCount}</div>
-                       <div style="font-size: 10px; color: ${textColor}; margin: 2px 0 0 0;">Student</div>
-                     </div>
-                     <div>
-                       <div style="font-size: 16px; font-weight: bold; color: #6b7280; margin: 0;">${item.classAverage}</div>
-                       <div style="font-size: 10px; color: #6b7280; margin: 2px 0 0 0;">Class Avg</div>
-                     </div>
-                   </div>
-                 </div>
-               `;
-             });
+               studentComparisonSection.innerHTML = `
+               <div style="margin-bottom: 30px;">
+                 <h4 style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 15px;">
+                   Student vs Class Average (Flags)
+                 </h4>
+             `;
              
-             studentComparisonSection.innerHTML += `</div></div>`;
-             pdfContent.appendChild(studentComparisonSection);
+             for (let i = 0; i < analyticsData.studentFlagsByCategoryComparison.length; i += 2) {
+               const pair = analyticsData.studentFlagsByCategoryComparison.slice(i, i + 2);
+             
+               studentComparisonSection.innerHTML += `<div style="width: 100%; display: block; clear: both;">`;
+             
+               pair.forEach((item) => {
+                 const bgColor = item.studentCount === 0 ? '#f9fafb' : item.studentCount > item.classAverage ? '#fef3c7' : '#dcfce7';
+                 const borderColor = item.studentCount === 0 ? '#e5e7eb' : item.studentCount > item.classAverage ? '#f59e0b' : '#22c55e';
+                 const textColor = item.studentCount === 0 ? '#6b7280' : item.studentCount > item.classAverage ? '#d97706' : '#15803d';
+             
+                 studentComparisonSection.innerHTML += `
+                   <div style="float: left; width: 48%; margin: 0 1% 15px 1%; box-sizing: border-box; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 15px;">
+                     <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                       <span style="width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; background-color: ${item.category.color};"></span>
+                       <h5 style="font-size: 12px; font-weight: 500; color: #111827; margin: 0;">${item.category.name}</h5>
+                     </div>
+                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center;">
+                       <div>
+                         <div style="font-size: 16px; font-weight: bold; color: ${textColor}; margin: 0;">${item.studentCount}</div>
+                         <div style="font-size: 10px; color: ${textColor}; margin: 2px 0 0 0;">Student</div>
+                       </div>
+                       <div>
+                         <div style="font-size: 16px; font-weight: bold; color: #6b7280; margin: 0;">${item.classAverage}</div>
+                         <div style="font-size: 10px; color: #6b7280; margin: 2px 0 0 0;">Class Avg</div>
+                       </div>
+                     </div>
+                   </div>
+                 `;
+               });
+             
+               studentComparisonSection.innerHTML += `</div>`; // close row
+             }
+             
+             studentComparisonSection.innerHTML += `</div>`;
+             pdfContent.appendChild(studentComparisonSection);             
+             });
            }
          }
       }
