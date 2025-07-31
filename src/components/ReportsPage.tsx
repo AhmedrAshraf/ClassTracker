@@ -1504,10 +1504,20 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
             {/* TEACHER NOTES */}
             {selectedStudentId && reportData.teacherNotes.length > 0 && (
               <div className="bg-white p-6 rounded-2xl border shadow-sm mb-8">
-                <h3 className="flex items-center mb-6 text-lg font-bold text-gray-900">
-                  <MessageSquare className="w-5 h-5 mr-2 text-blue-500" />
-                  Teacher Notes ({reportData.teacherNotes.length})
-                </h3>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="flex items-center text-lg font-bold text-gray-900">
+                    <MessageSquare className="w-5 h-5 mr-2 text-blue-500" />
+                    Teacher Notes ({reportData.teacherNotes.length})
+                  </h3>
+                  <button
+                    onClick={exportTeacherNotes}
+                    disabled={!reportData || reportData.teacherNotes.length === 0}
+                    className="px-4 py-2 bg-blue-200 rounded-lg text-blue-700 hover:bg-blue-300 disabled:opacity-50 flex items-center space-x-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Export</span>
+                  </button>
+                </div>
                 <div className="space-y-4">
                   {reportData.teacherNotes.map((note, idx) => {
                     const stu = students.find(s => s.id === note.student_id);
