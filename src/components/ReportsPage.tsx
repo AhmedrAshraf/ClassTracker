@@ -449,61 +449,56 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ onNavigateBack }) => {
         pdfContent.appendChild(distributionSection);
         
                  // Analytics Section
-         if (analyticsData) {
-           const analyticsSection = document.createElement('div');
-           analyticsSection.innerHTML = `
-             <div style="margin-bottom: 30px;">
-               <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">Participation Points Analytics</h3>
-               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 15px;">
-                   <h4 style="font-size: 12px; font-weight: 500; color: #1e40af; margin-bottom: 8px;">Class Average Points</h4>
-                   <p style="font-size: 20px; font-weight: bold; color: #2563eb; margin: 0;">${analyticsData.classAveragePositivePoints}</p>
-                   <p style="font-size: 10px; color: #2563eb; margin: 5px 0 0 0;">per student</p>
-                 </div>
-           `;
-           
-           // Only add student comparison and rank if a student is selected
-           if (selectedStudentId && analyticsData.studentComparisonMessage) {
-             analyticsSection.innerHTML += `
-               <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
-                 <h4 style="font-size: 12px; font-weight: 500; color: #166534; margin-bottom: 8px;">Student vs Class Average</h4>
-                 <p style="font-size: 12px; color: #15803d; line-height: 1.4; margin: 0;">${analyticsData.studentComparisonMessage}</p>
-               </div>
-             `;
-           }
-           
-           if (selectedStudentId && analyticsData.studentRankMessage) {
-             analyticsSection.innerHTML += `
-               <div style="background: #faf5ff; border: 1px solid #c4b5fd; border-radius: 8px; padding: 15px;">
-                 <h4 style="font-size: 12px; font-weight: 500; color: #7c3aed; margin-bottom: 8px;">Student Rank in Class</h4>
-                 <p style="font-size: 16px; font-weight: bold; color: #7c3aed; margin: 0;">${analyticsData.studentRankMessage}</p>
-                 <p style="font-size: 10px; color: #7c3aed; margin: 5px 0 0 0;">based on total points</p>
-               </div>
-             `;
-           }
-          
-          if (selectedStudentId && analyticsData.studentComparisonMessage) {
-            analyticsSection.innerHTML += `
-              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
-                <h4 style="font-size: 12px; font-weight: 500; color: #166534; margin-bottom: 8px;">Student vs Class Average</h4>
-                <p style="font-size: 12px; color: #15803d; line-height: 1.4; margin: 0;">${analyticsData.studentComparisonMessage}</p>
-              </div>
-            `;
-          }
-          
-          if (selectedStudentId && analyticsData.studentRankMessage) {
-            analyticsSection.innerHTML += `
-              <div style="background: #faf5ff; border: 1px solid #c4b5fd; border-radius: 8px; padding: 15px;">
-                <h4 style="font-size: 12px; font-weight: 500; color: #7c3aed; margin-bottom: 8px;">Student Rank in Class</h4>
-                <p style="font-size: 16px; font-weight: bold; color: #7c3aed; margin: 0;">${analyticsData.studentRankMessage}</p>
-                <p style="font-size: 10px; color: #7c3aed; margin: 5px 0 0 0;">based on total points</p>
-              </div>
-            `;
-          }
-          
-          analyticsSection.innerHTML += `</div></div>`;
-          pdfContent.appendChild(analyticsSection);
-        }
+                 if (analyticsData) {
+                  const analyticsSection = document.createElement('div');
+                  analyticsSection.innerHTML = `
+                    <div style="margin-bottom: 30px;">
+                      <h3 style="font-size: 18px; font-weight: bold; color: #111827; margin-bottom: 15px;">
+                        Participation Points Analytics
+                      </h3>
+                      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 15px; min-height: 120px;">
+                          <h4 style="font-size: 12px; font-weight: 500; color: #1e40af; margin-bottom: 8px;">Class Average Points</h4>
+                          <p style="font-size: 20px; font-weight: bold; color: #2563eb; margin: 0;">
+                            ${analyticsData.classAveragePositivePoints}
+                          </p>
+                          <p style="font-size: 10px; color: #2563eb; margin: 5px 0 0 0;">per student</p>
+                        </div>
+                
+                        ${
+                          selectedStudentId && analyticsData.studentComparisonMessage
+                            ? `
+                          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px; min-height: 120px;">
+                            <h4 style="font-size: 12px; font-weight: 500; color: #166534; margin-bottom: 8px;">Student vs Class Average</h4>
+                            <p style="font-size: 12px; color: #15803d; line-height: 1.4; margin: 0;">
+                              ${analyticsData.studentComparisonMessage}
+                            </p>
+                          </div>
+                        `
+                            : ''
+                        }
+                
+                        ${
+                          selectedStudentId && analyticsData.studentRankMessage
+                            ? `
+                          <div style="background: #faf5ff; border: 1px solid #c4b5fd; border-radius: 8px; padding: 15px; min-height: 120px;">
+                            <h4 style="font-size: 12px; font-weight: 500; color: #7c3aed; margin-bottom: 8px;">Student Rank in Class</h4>
+                            <p style="font-size: 16px; font-weight: bold; color: #7c3aed; margin: 0;">
+                              ${analyticsData.studentRankMessage}
+                            </p>
+                            <p style="font-size: 10px; color: #7c3aed; margin: 5px 0 0 0;">based on total points</p>
+                          </div>
+                        `
+                            : ''
+                        }
+                
+                      </div>
+                    </div>
+                  `;
+                
+                  pdfContent.appendChild(analyticsSection);
+                }
+                
 
          if (analyticsData) {
            const flagsSection = document.createElement('div');
